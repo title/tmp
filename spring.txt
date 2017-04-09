@@ -1,0 +1,177 @@
+﻿Spring降低Java开发复杂性的策略
+	基于POJO的轻量级和最小侵入性编程
+	通过依赖注入和面向接口实现松耦合
+	基于切面和惯例进行声明式编程
+	通过切面和模板减少样板式代码
+	
+Spring Application Context类型
+AnnotationConfigApplicationContext：从Java配置类中加载设置
+AnnotationConfigWebApplicationContext：从Java配置类中加载Spring Web设置
+ClassPathXmlApplicationContext：从类路径下的XML配置文件加载设置
+FileSystemXmlApplicationContext：从文件系统中的XML配置文件加载设置
+XmlWebApplicationContext：从Web应用下的XML配置文件加载设置
+
+Bean的生命周期（p36）
+Spring的构成（图1.7 p39）
+
+
+===Spring配置 和 DI===
+1. 配置方法
+1.1 XML配置
+1.2 Java配置 (推荐)
+	用@Configuration标示Java配置类
+	用@Bean标示该配置类中创建bean实例的方法
+		可指定bean名称
+1.3 隐式的bean发现机制和自动装配 (推荐)
+	用@Component标示bean类，让Spring自动为该类创建bean.
+		可以指定bean名称
+	启用Spring对@Component的扫描
+		用@ComponentScan标示Java配置类，指定需要扫描component的范围
+			@ComponentScan(basePackages={"soundsystem","video"})
+			@ComponentScan(basePackageClasses={CDPlayer.class, DVDPlayer.class})
+		在XML配置文件中指定扫描包
+			<context:component-scan base-package="soundsystem" />
+	用@Autowired标示需要装配bean的地方
+		@Autowired CompactDisc cd;
+		@Autowired CDPlayer(CompactDisc cd) {this.cd = cd;}
+	处理自动装配的歧义性
+		用@Primary标示首选的bean
+		限定自动装配的bean
+			用@Qualifier标示bean，指定该bean的限定符
+			用@Qualifier标示需要自动装配的地方，指定目标bean的限定符
+			*如果需要多个@Qualifier限定，可将这些限定分别创建为具体的注解（因为Java不允许同一条目上重复出现相同类型的注解）
+		
+1.4 混合配置
+1.4.1 在Java配置类中合并其它配置类
+	用@Import标示Java配置类，指定要导入的其它配置类
+		@Import({CDPlayerConfig.class, CDConfig.class})
+1.4.2 在Java配置中引用XML配置
+	用@ImportResource标示Java配置类，指定要导入的XML配置文件路径
+		@Import("classpath:cd-config.xml")
+1.4.3 在XML配置中引用Java配置
+	用创建bean的方式添加引用
+		<bean class="soundsystem.CDConfig" />
+2. 条件化的bean
+	用@Conditional标示创建bean的方法，指定一个实现了Condition接口的类；bean将只有在该类的matches方法返回true时才会创建。
+		@Profile就是@Conditional的一种应用
+		
+3. bean的作用域
+3.1 作用域类型
+单例（Singleton）：整个应用中，只创建一个实例。（默认）
+原型（prototype）：每次注入或通过Spring Application Context获取时，都创建一个新实例
+会话（Session）：在Web应用中，为每个会话创建一个实例
+请求（Request）：在Web应用中，为每个请求创建一个实例
+3.2 指定作用域
+用@Scope标示bean的类或创建bean的方法，指定相应的作用域
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+@Scope(value=WebApplicationContext.SCOPE_SESSION,proxyMode=ScopedProxyMode.INTERFACES)
+	proxyMode表明生成bean的方式是接口还是扩展类。目的是为了延迟注入请求和会话作用域的bean。这些bean只有在请求发生后才会生成，但是某些应用程序全局设置在启动时就会装配这些bean，故需要延迟注入。
+4. 运行时注入
+属性占位符（Property placeholder）
+	用@PropertySource标示Java配置类，指定属性文件
+	使用属性
+		在Java配置类中创建bean
+			通过Environment获取属性名对应的值
+		通过组件自动扫描和自动装配
+			用@Value标示bean构造器参数，用占位符指定对应的属性
+				@Value("${disc.title}") String title
+			配置PropertySourcesPlaceholderConfigurer bean以启用占位符
+Spring表达式（SpEL）#{...}
+	SpEL运算符（p103）
+	不要让表达式太智能，因为SpEL测试很困难
+	
+===Sprin AOP===
+1. AOP概念
+	1.1 通知（Advice）：用于对象的横切行为，定义切面是什么（What）及何时（When）使用
+	前置通知（Before）：在目标方法被调用之前
+	后置通知（After）：在目标方法完成之后，不关心方法的输出
+	返回通知（After-returning）：在目标方法成功执行之后
+	异常通知（After-throwing）：在目标方法抛出异常后
+	环绕通知（Around）：包裹被通知的方法，在目标方法调用前和调用后执行自定义行为
+
+	1.2 连接点（Join point）：能够应用通知的点
+
+	1.3 切点（Pointcut）：通知被应用的具体位置（哪些连接点）(Where)
+
+	1.4 切面（Aspect）：通知和切点的结合
+
+	1.5 引入（Introduction）：向现有的类添加新的方法或属性
+
+	1.6 织入（Weaving）：把切面应用到目标对象并创建新的代理对象的过程
+		织入方式
+			编译期：需要特殊的编译器
+			类加载器：需要特殊的类加载器
+			运行期：在应用运行期间，AOP容器为目标对象动态创建一个代理对象。Spring AOP的实现方式
+2. Spring对AOP的支持
+2.1 Spring AOP：基于动态代理，只支持方法拦截（图4.3 p113）
+	基于代理的经典Spring AOP
+	纯POJO切面
+	@AspectJ注解驱动的切面
+		编写切点：创建包含目标方法的接口
+		创建切面
+			用@Aspect标示切面类
+			用@Before，@After等注解标示类中的通知方法，指定触发时间和目标方法
+				@Before("execution(** concert.Performance.perform(...))")
+		在Java配置类中定义切面bean
+		用@EnableAspectJAutoProxy标示Java配置类以启用
+		定义切点以重复使用：
+			@Pointcut("execution(** concert.Performance.perform(...))")
+			public void perform(){}
+		处理通知中的参数（p122）
+			在切点定义中标明参数类型及参数名
+			在通知方法中添加相应的参数
+		通过注解引入新类型（p125）
+			创建包含新方法的接口
+			创建切面类，用@DeclareParents标示上述接口类的静态属性。
+				@DeclareParents(value="concert.Performance+",defaultImpl=DefaultEncoreable.class)
+				value：指定哪种类型的bean要引入该接口
+				defaultImpl：指定新接口的实现类
+			配置切面类的bean
+			
+2.2 注入式AspectJ切面
+
+		
+===Spring Profile===
+1. 配置
+	Java配置
+		用@Profile标示Java配置类或bean的创建方法，指定该其生效的目标环境
+	XML配置
+		用<beans></beans>包含配置目标，设置<beans>的profile属性
+2. 激活profile
+	2.1 设置属性
+		spring.profiles.active和spring.profiles.default
+	2.2 设置方式
+		作为DispatcherServlet的初始化参数
+		作为Web Application Context的上下文参数
+			web.xml配置：
+			<context-param>
+				<param-name>spring.profiles.default</param-name>
+				<param-value>dev</param-value>
+			</context-param>
+		作为JNDI条目
+		作为环境变量
+		作为JVM的系统属性
+		在集成测试类上用@ActiveProfiles注解设置
+	2.3 设置策略
+		在web.xml中设置default profile为dev环境
+		当应用程序部署到其它环境时，根据情况使用其它方式设置active profile
+	
+
+===Spring MVC===
+
+7.3 处理异常
+7.3.1 将异常映射为HTTP状态码
+Spring默认的异常与HTTP状态码映射（p209）
+用@ResponseStatus标示自定义类型的异常类，指定对应的HTTP状态码
+7.3.2 编写异常处理方法
+方法一：在Controller的处理方法中捕获异常，并返回对应的处理异常的View Name
+方法二：编写针对特定异常的处理方法
+	方法一：在Controller类内部添加处理异常的方法，用@ExceptionHandler标示该方法并指定其对应的异常类型。
+	方法二：类似方法一，但是将处理异常的方法放在控制器通知类中，用@ControllerAdvice标示该类，用@ExceptionHandler标示方法。该方式对整个应用程序有效。
+
+7.5.2 使用flash属性
+类似ASP.NET的TempData，基于Session实现。（图7.2 p216）
+在Controller的处理方法的参数列表上添加RedirectAttributes类型的参数；
+在处理原始请求的方法中addFlashAttribute；
+在处理重定向请求的方法中使用这个添加的属性
+
